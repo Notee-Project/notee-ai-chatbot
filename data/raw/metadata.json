@@ -1,0 +1,44 @@
+{
+  "documents": [
+    {
+      "id": 1,
+      "filename": "document_01_학사.txt",
+      "title": "2025학년도 1학기 장학금 신청 안내",
+      "category": "학사",
+      "date": "2025-03-15",
+      "source": "학생지원팀"
+    },
+    {
+      "id": 2,
+      "filename": "document_02_시설.txt",
+      "title": "도서관 시험기간 운영시간 변경 안내",
+      "category": "시설",
+      "date": "2025-04-10",
+      "source": "도서관"
+    },
+    {
+      "id": 3,
+      "filename": "document_03_국제교류.txt",
+      "title": "2025년 하계 해외교환학생 프로그램 모집",
+      "category": "국제교류",
+      "date": "2025-03-25",
+      "source": "국제교류원"
+    },
+    {
+      "id": 4,
+      "filename": "document_04_취업.txt",
+      "title": "2025년 취업박람회 개최 안내",
+      "category": "취업",
+      "date": "2025-04-05",
+      "source": "취업지원센터"
+    },
+    {
+      "id": 5,
+      "filename": "document_05_시설.txt",
+      "title": "학생식당 메뉴 변경 및 운영시간 조정 안내",
+      "category": "시설",
+      "date": "2025-04-12",
+      "source": "학생생활관"
+    }
+  ]
+}
