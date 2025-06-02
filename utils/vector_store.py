@@ -239,8 +239,7 @@ class SafeVectorStoreManager:
                 time.sleep(2)
                 
                 # 4. 새로운 컬렉션 이름 생성 (충돌 방지)
-                import uuid
-                collection_name = f"school_notices_{int(time.time())}"
+                collection_name = "school_notices"
                 
                 print(f"🔧 새 Chroma 벡터 저장소 생성 중... (컬렉션: {collection_name})")
                 

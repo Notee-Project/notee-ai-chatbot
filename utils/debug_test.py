@@ -1,34 +1,36 @@
 """
-벡터저장소 전용 파이프라인 통합 테스트 스크립트
+벡터저장소 전용 파이프라인 통합 테스트 스크립트 (테스트 전용)
 
 📋 용도:
-- 문서 처리 → 벡터 저장소 생성 → 검색 기능의 전체 흐름 검증
-- 각 단계별 오류 진단 및 성능 확인
-- 새로운 환경에서 시스템 정상 작동 여부 확인
-- 코드 변경 후 전체 시스템 무결성 검증
+- 기존 벡터 저장소의 검색 기능 테스트
+- 문서 처리 파이프라인 검증
+- 시스템 정상 작동 여부 확인
+- 버그 리포트 시 문제 지점 파악
 
 🎯 검증 단계:
 1. 데이터 상태 확인 (파일 존재, 크기, 구조)
-2. 문서 처리 파이프라인 (로드 → 메타데이터 → 청크 분할)
-3. 벡터 저장소 생성 (임베딩 → Chroma DB 저장)
-4. 검색 기능 테스트 (유사도 검색 → 결과 반환)
+2. 기존 벡터 저장소 로드 테스트
+3. 검색 기능 테스트 (유사도 검색 → 결과 반환)
 
-🚀 실행 시기:
-- 개발 환경 최초 설정 시
-- 코드 변경 후 회귀 테스트
-- 새로운 데이터 추가 후 검증
-- 버그 리포트 시 문제 지점 파악
+🚀 실행 방법:
+- 기본 테스트: python utils/debug_test.py
+- 상세 로그: python utils/debug_test.py --verbose
+
+⚠️ 사전 준비:
+벡터 저장소가 없는 경우 먼저 다음 명령을 실행하세요:
+python utils/vector_store.py
 
 📊 성공 기준:
-- 5개 문서 처리 완료
-- 5개 청크 생성 성공
-- 벡터 저장소 생성 및 검색 가능
+- 기존 벡터 저장소 로드 성공
+- 검색 기능 정상 작동
 """
 
 import os
 import sys
-import shutil
+import argparse
+import time
 from typing import List
+from pathlib import Path
 
 # 현재 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -37,9 +39,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from document_processing import DocumentProcessor
 from vector_store import SafeVectorStoreManager as VectorStoreManager
 
-def check_data_directory():
+def check_data_directory(verbose=False):
     """데이터 디렉토리와 파일 상태 확인"""
-    print("=== 데이터 디렉토리 상태 확인 ===")
+    print("=== 📁 데이터 디렉토리 상태 확인 ===")
     
     data_dir = "../data/raw"
     print(f"데이터 디렉토리: {data_dir}")
@@ -60,33 +62,38 @@ def check_data_directory():
                 size = os.path.getsize(file_path)
                 print(f"  - {txt_file}: {size} bytes")
                 
-                # 파일 내용 미리보기
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        content = f.read(200)
-                        print(f"    내용 미리보기: {content[:100]}...")
-                except Exception as e:
-                    print(f"    파일 읽기 오류: {e}")
+                # 상세 모드에서만 파일 내용 미리보기
+                if verbose:
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read(200)
+                            print(f"    내용 미리보기: {content[:100]}...")
+                    except Exception as e:
+                        print(f"    파일 읽기 오류: {e}")
         
         # metadata.json 확인
         metadata_path = os.path.join(data_dir, "metadata.json")
         if os.path.exists(metadata_path):
             print("✅ metadata.json 파일 존재")
-            try:
-                import json
-                with open(metadata_path, 'r', encoding='utf-8') as f:
-                    metadata = json.load(f)
-                    print(f"메타데이터 문서 수: {len(metadata.get('documents', []))}")
-            except Exception as e:
-                print(f"메타데이터 읽기 오류: {e}")
+            if verbose:
+                try:
+                    import json
+                    with open(metadata_path, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                        print(f"메타데이터 문서 수: {len(metadata.get('documents', []))}")
+                except Exception as e:
+                    print(f"메타데이터 읽기 오류: {e}")
         else:
             print("❌ metadata.json 파일 없음")
+            
+        return len(txt_files) > 0
     else:
         print("❌ 데이터 디렉토리가 존재하지 않습니다!")
+        return False
 
-def test_document_processing():
-    """문서 처리 테스트"""
-    print("\n=== 문서 처리 테스트 ===")
+def test_document_processing(verbose=False):
+    """문서 처리 테스트 (선택적)"""
+    print("\n=== 📄 문서 처리 테스트 ===")
     
     try:
         processor = DocumentProcessor(data_directory="../data/raw")
@@ -101,97 +108,110 @@ def test_document_processing():
         documents = processor.load_documents()
         print(f"로드된 문서 수: {len(documents)}")
         
-        if documents:
+        if documents and verbose:
             print("첫 번째 문서 정보:")
             doc = documents[0]
             print(f"  - 소스: {doc.metadata.get('source', 'N/A')}")
             print(f"  - 내용 길이: {len(doc.page_content)} 글자")
             print(f"  - 내용 미리보기: {doc.page_content[:100]}...")
         
-        # 3. 전체 처리 파이프라인 테스트
-        print("3. 전체 처리 파이프라인 테스트...")
-        chunks = processor.process_documents()
-        print(f"생성된 청크 수: {len(chunks)}")
+        # 3. 전체 처리 파이프라인 테스트 (상세 모드에서만)
+        if verbose:
+            print("3. 전체 처리 파이프라인 테스트...")
+            chunks = processor.process_documents()
+            print(f"생성된 청크 수: {len(chunks)}")
+            
+            if chunks:
+                print("첫 번째 청크 정보:")
+                chunk = chunks[0]
+                print(f"  - 제목: {chunk.metadata.get('title', 'N/A')}")
+                print(f"  - 카테고리: {chunk.metadata.get('category', 'N/A')}")
+                print(f"  - 청크 크기: {len(chunk.page_content)} 글자")
+        else:
+            print("3. 전체 처리 파이프라인 테스트... (--verbose로 실행)")
         
-        if chunks:
-            print("첫 번째 청크 정보:")
-            chunk = chunks[0]
-            print(f"  - 제목: {chunk.metadata.get('title', 'N/A')}")
-            print(f"  - 카테고리: {chunk.metadata.get('category', 'N/A')}")
-            print(f"  - 청크 크기: {len(chunk.page_content)} 글자")
-            print(f"  - 메타데이터: {chunk.metadata}")
-        
-        return chunks
+        return True
         
     except Exception as e:
         print(f"문서 처리 중 오류 발생: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        return False
 
-def clean_vector_store():
-    """기존 벡터 저장소 완전 삭제"""
-    print("\n=== 벡터 저장소 초기화 ===")
+def check_vector_store_exists():
+    """벡터 저장소 존재 여부 확인"""
+    print("\n=== 🔍 벡터 저장소 확인 ===")
     
     vector_db_path = "../data/vector_db"
+    
     if os.path.exists(vector_db_path):
-        try:
-            shutil.rmtree(vector_db_path)
-            print(f"✅ 기존 벡터 저장소 삭제: {vector_db_path}")
-        except Exception as e:
-            print(f"❌ 벡터 저장소 삭제 실패: {e}")
-    
-    # 새로 생성
-    os.makedirs(vector_db_path, exist_ok=True)
-    print(f"✅ 새 벡터 저장소 디렉토리 생성: {vector_db_path}")
+        print(f"✅ 벡터 저장소 디렉토리 존재: {vector_db_path}")
+        
+        # 디렉토리 내 파일들 확인
+        files = os.listdir(vector_db_path)
+        if files:
+            print(f"저장된 파일들: {files}")
+            
+            # Chroma DB 파일들 확인
+            chroma_files = [f for f in files if f.startswith('chroma')]
+            if chroma_files:
+                print(f"Chroma DB 파일들: {chroma_files}")
+                return True
+            else:
+                print("❌ Chroma DB 파일들이 없습니다.")
+                return False
+        else:
+            print("❌ 벡터 저장소 디렉토리가 비어있습니다.")
+            return False
+    else:
+        print(f"❌ 벡터 저장소 디렉토리 없음: {vector_db_path}")
+        return False
 
-def test_vector_store_creation(chunks):
-    """벡터 저장소 생성 테스트"""
-    print("\n=== 벡터 저장소 생성 테스트 ===")
-    
-    if not chunks:
-        print("❌ 처리된 청크가 없어 벡터 저장소를 생성할 수 없습니다.")
-        return None
+def test_vector_store_load(verbose=False):
+    """기존 벡터 저장소 로드 테스트 (자동으로 컬렉션 찾기)"""
+    print("\n=== 🔄 벡터 저장소 로드 테스트 ===")
     
     try:
-        # 벡터 저장소 관리자 초기화
         vector_manager = VectorStoreManager(
             embedding_model="korean",
             vector_db_type="chroma",
             persist_directory="../data/vector_db"
         )
         
-        print(f"청크 수: {len(chunks)}")
-        print("벡터 저장소 생성 중...")
+        vector_db_path = "../data/vector_db"
         
-        # 벡터 저장소 생성
-        vector_manager.create_vector_store_safe(chunks)
+        # ChromaDB 클라이언트로 사용 가능한 컬렉션 찾기
+        import chromadb
+        client = chromadb.PersistentClient(path=vector_db_path)
+        collections = client.list_collections()
         
-        # 생성 확인
-        if vector_manager.vector_store is not None:
-            print("✅ 벡터 저장소 생성 성공!")
-            
-            # 문서 개수 확인
-            try:
-                count = vector_manager.vector_store._collection.count()
-                print(f"📊 저장된 문서 개수: {count}")
-            except Exception as e:
-                print(f"문서 개수 확인 중 오류: {e}")
-            
-            return vector_manager
-        else:
-            print("❌ 벡터 저장소 생성 실패")
-            return None
-            
+        print(f"🔍 사용 가능한 컬렉션: {[c.name for c in collections]}")
+        
+        # 문서가 있는 첫 번째 컬렉션 사용
+        for collection in collections:
+            count = collection.count()
+            if count > 0:
+                print(f"✅ '{collection.name}' 컬렉션 사용 ({count}개 문서)")
+                
+                from langchain_chroma import Chroma
+                vector_manager.vector_store = Chroma(
+                    persist_directory=vector_db_path,
+                    embedding_function=vector_manager.embeddings,
+                    collection_name=collection.name
+                )
+                return vector_manager
+        
+        print("❌ 문서가 있는 컬렉션을 찾을 수 없습니다.")
+        return None
+        
     except Exception as e:
-        print(f"벡터 저장소 생성 중 오류 발생: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"벡터 저장소 로드 실패: {e}")
         return None
 
-def test_search(vector_manager):
+def test_search(vector_manager, verbose=False):
     """검색 기능 테스트"""
-    print("\n=== 검색 기능 테스트 ===")
+    print("\n=== 🔍 검색 기능 테스트 ===")
     
     if not vector_manager or not vector_manager.vector_store:
         print("❌ 벡터 저장소가 없어 검색을 테스트할 수 없습니다.")
@@ -199,11 +219,16 @@ def test_search(vector_manager):
     
     test_queries = [
         "장학금",
-        "도서관",
-        "학식",
+        "도서관", 
         "수강신청",
-        "기숙사"
+        "해외교환학생",
+        "학생식당"
     ]
+    
+    # 빠른 모드에서는 처음 3개만 테스트
+    if not verbose:
+        test_queries = test_queries[:3]
+        print("(빠른 테스트 모드: 3개 쿼리만 실행, --verbose로 전체 테스트)")
     
     for query in test_queries:
         print(f"\n🔍 '{query}' 검색 결과:")
@@ -215,160 +240,110 @@ def test_search(vector_manager):
                     print(f"  {i}. [점수: {score:.4f}]")
                     print(f"     제목: {doc.metadata.get('title', 'N/A')}")
                     print(f"     카테고리: {doc.metadata.get('category', 'N/A')}")
-                    print(f"     내용: {doc.page_content[:100]}...")
+                    if verbose:
+                        print(f"     내용: {doc.page_content[:100]}...")
             else:
                 print("  검색 결과 없음")
                 
         except Exception as e:
             print(f"  검색 중 오류: {e}")
 
-def create_sample_data():
-    """샘플 데이터 생성 (데이터가 없는 경우)"""
-    print("\n=== 샘플 데이터 생성 ===")
+def print_vector_store_creation_guide():
+    """벡터 저장소 생성 가이드 출력"""
+    print("\n" + "="*60)
+    print("🚨 벡터 저장소가 없습니다!")
+    print("="*60)
+    print("\n다음 단계를 따라 벡터 저장소를 먼저 생성하세요:")
+    print("\n1️⃣ 벡터 저장소 생성:")
+    print("   python utils/vector_store.py")
+    print("\n2️⃣ 생성 완료 후 다시 테스트:")
+    print("   python utils/debug_test.py")
+    print("\n📝 참고:")
+    print("   - vector_store.py는 문서를 처리하고 벡터 저장소를 생성합니다")
+    print("   - debug_test.py는 기존 벡터 저장소를 테스트합니다")
+    print("   - 역할이 분리되어 더 효율적입니다")
+    print("\n" + "="*60)
+
+def validate_prerequisites():
+    """사전 요구사항 검사"""
+    # 1. 데이터 디렉토리 확인
+    if not check_data_directory():
+        print("\n❌ 데이터 디렉토리 문제:")
+        print("   - data/raw 디렉토리에 .txt 파일들이 있는지 확인하세요")
+        print("   - metadata.json 파일도 있는지 확인하세요")
+        return False
     
-    data_dir = "../data/raw"
-    os.makedirs(data_dir, exist_ok=True)
+    # 2. 벡터 저장소 확인
+    if not check_vector_store_exists():
+        print_vector_store_creation_guide()
+        return False
     
-    # 샘플 텍스트 파일들 생성
-    sample_files = {
-        "document_01_학사.txt": """
-학사 관리 안내
-
-■ 수강신청 안내
-- 수강신청 기간: 2025년 2월 10일 ~ 2월 20일
-- 신청 방법: 학사정보시스템 접속 후 수강신청 메뉴 이용
-- 문의처: 학사팀 (031-123-4567)
-
-■ 장학금 신청 안내
-- 성적우수장학금: 직전학기 평점 3.5 이상
-- 신청 기간: 매학기 개강 후 2주 이내
-- 제출 서류: 장학금신청서, 성적증명서
-- 문의처: 학생지원팀 (031-123-4568)
-
-■ 학점 인정 및 편입학 안내
-- 편입학 신청 자격: 전문대학 졸업자 또는 4년제 대학 2학년 수료자
-- 학점 인정: 동일 계열 과목에 한해 최대 65학점까지 인정
-        """,
-        
-        "document_02_시설.txt": """
-캠퍼스 시설 이용 안내
-
-■ 도서관 운영 안내
-- 운영시간: 평일 09:00 ~ 22:00, 주말 09:00 ~ 18:00
-- 대출 권수: 학부생 5권, 대학원생 10권
-- 대출 기간: 학부생 14일, 대학원생 30일
-- 연장: 1회 가능 (반납예정일 전일까지)
-
-■ 학생식당 운영 안내
-- 운영시간: 
-  * 조식: 08:00 ~ 09:00 (평일만)
-  * 중식: 11:30 ~ 14:00
-  * 석식: 17:00 ~ 19:00
-- 식비: 조식 3,000원, 중식 4,000원, 석식 4,500원
-- 결제방법: 학생증, 현금, 카드
-
-■ 체육시설 이용 안내
-- 체육관 개방시간: 06:00 ~ 22:00
-- 헬스장: 평일 06:00 ~ 22:00, 주말 09:00 ~ 18:00
-- 수영장: 월/수/금 06:00 ~ 21:00
-        """,
-        
-        "document_03_국제교류.txt": """
-국제교류 프로그램 안내
-
-■ 해외교환학생 프로그램
-- 신청 자격: 2학년 이상, 평점 3.0 이상
-- 파견 대학: 미국, 일본, 중국, 유럽 등 30여개 대학
-- 신청 기간: 매년 3월, 9월
-- 지원 혜택: 등록금 면제, 항공료 일부 지원
-
-■ 해외인턴십 프로그램  
-- 대상: 3학년 이상
-- 분야: IT, 경영, 엔지니어링
-- 기간: 6개월 ~ 1년
-- 혜택: 현지 체재비 지원, 학점 인정
-
-■ 어학연수 프로그램
-- 기간: 하계/동계 방학 중 4주
-- 국가: 미국, 영국, 호주, 필리핀
-- 지원 내용: 수업료, 숙박비 일부 지원
-        """
-    }
-    
-    # 파일 생성
-    for filename, content in sample_files.items():
-        file_path = os.path.join(data_dir, filename)
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content.strip())
-        print(f"✅ 생성: {filename}")
-    
-    # 메타데이터 파일 생성
-    metadata = {
-        "created_at": "2025-04-20",
-        "description": "대학교 공지사항 샘플 데이터",
-        "documents": [
-            {
-                "id": 1,
-                "filename": "document_01_학사.txt",
-                "title": "학사 관리 안내",
-                "category": "학사",
-                "date": "2025-04-01",
-                "source": "학사팀"
-            },
-            {
-                "id": 2,
-                "filename": "document_02_시설.txt", 
-                "title": "캠퍼스 시설 이용 안내",
-                "category": "시설",
-                "date": "2025-04-02",
-                "source": "시설팀"
-            },
-            {
-                "id": 3,
-                "filename": "document_03_국제교류.txt",
-                "title": "국제교류 프로그램 안내", 
-                "category": "국제교류",
-                "date": "2025-04-03",
-                "source": "국제교류팀"
-            }
-        ]
-    }
-    
-    import json
-    metadata_path = os.path.join(data_dir, "metadata.json")
-    with open(metadata_path, 'w', encoding='utf-8') as f:
-        json.dump(metadata, f, ensure_ascii=False, indent=2)
-    print("✅ metadata.json 생성 완료")
+    return True
 
 def main():
-    """메인 실행 함수"""
-    print("=== 전체 파이프라인 디버그 테스트 시작 ===")
+    """메인 실행 함수 (테스트 전용)"""
+    # 명령행 인자 파싱
+    parser = argparse.ArgumentParser(
+        description="벡터저장소 파이프라인 테스트 (기존 저장소 테스트 전용)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+사용 예시:
+  python utils/debug_test.py          # 기본 테스트
+  python utils/debug_test.py --verbose # 상세 로그 출력
+
+사전 준비:
+  python utils/vector_store.py        # 벡터 저장소가 없는 경우 먼저 실행
+        """
+    )
+    parser.add_argument("--verbose", action="store_true",
+                       help="상세한 로그 및 디버그 정보 출력")
     
-    # 1. 데이터 디렉토리 확인
-    check_data_directory()
+    args = parser.parse_args()
     
-    # 데이터가 없으면 샘플 데이터 생성
-    if not os.path.exists("../data/raw") or len(os.listdir("../data/raw")) < 2:
-        print("\n데이터가 부족하여 샘플 데이터를 생성합니다...")
-        create_sample_data()
+    start_time = time.time()
     
-    # 2. 문서 처리 테스트
-    chunks = test_document_processing()
+    print("=== 🧪 벡터저장소 파이프라인 테스트 시작 ===")
+    print(f"📅 실행 시간: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"⚙️ 모드: {'상세' if args.verbose else '빠른'}")
     
-    if not chunks:
-        print("❌ 문서 처리에 실패했습니다. 프로그램을 종료합니다.")
+    # 1. 사전 요구사항 검사
+    if not validate_prerequisites():
+        print("❌ 사전 요구사항을 만족하지 않아 테스트를 중단합니다.")
         return
     
-    # 3. 벡터 저장소 초기화
-    clean_vector_store()
+    print("✅ 사전 요구사항 만족")
     
-    # 4. 벡터 저장소 생성 테스트
-    vector_manager = test_vector_store_creation(chunks)
+    # 2. 문서 처리 테스트 (선택적)
+    if not test_document_processing(verbose=args.verbose):
+        print("⚠️ 문서 처리 테스트에서 일부 문제 발견 (계속 진행)")
     
-    # 5. 검색 기능 테스트
-    test_search(vector_manager)
+    # 3. 벡터 저장소 로드 테스트
+    vector_manager = test_vector_store_load(verbose=args.verbose)
     
-    print("\n=== 전체 파이프라인 디버그 테스트 완료 ===")
+    if not vector_manager:
+        print("❌ 벡터 저장소 로드에 실패했습니다.")
+        print("\n🔧 해결 방법:")
+        print("   1. python utils/vector_store.py 를 실행하여 벡터 저장소를 다시 생성하세요")
+        print("   2. 데이터 파일들이 올바른지 확인하세요")
+        return
+    
+    # 4. 검색 기능 테스트
+    test_search(vector_manager, verbose=args.verbose)
+    
+    # 5. 실행 시간 출력 및 성능 정보
+    end_time = time.time()
+    execution_time = end_time - start_time
+    
+    print(f"\n=== ✅ 벡터저장소 파이프라인 테스트 완료 ===")
+    print(f"⏱️ 총 실행 시간: {execution_time:.2f}초")
+    
+    # 성능 정보
+    if execution_time < 5:
+        print("🚀 빠른 실행: 벡터 저장소가 효율적으로 로드되었습니다!")
+    elif execution_time < 10:
+        print("⚡ 정상 실행: 시스템이 안정적으로 동작합니다.")
+    else:
+        print("🐌 느린 실행: 시스템 성능을 확인해보세요.")
 
 if __name__ == "__main__":
     main()
