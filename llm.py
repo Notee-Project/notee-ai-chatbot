@@ -3,6 +3,7 @@ import sys
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from dotenv import load_dotenv
+import time  # 이 줄 추가!
 
 # 프로젝트 루트 경로를 Python path에 추가
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,9 +43,10 @@ class RAGPipeline:
     """
     
     def __init__(self, 
-                 model_name: str = "gpt-3.5-turbo",
-                 temperature: float = 0.1,
-                 max_tokens: int = 1000,
+                 model_name: str = "gpt-4o-mini",
+                 temperature: float = 0.1-0,
+                 max_tokens: int = 400,
+                 request_timeout=15,     # 응답 대기 시간 (초)
                  embedding_model: str = "korean",
                  vector_db_type: str = "chroma"):
         """
@@ -103,12 +105,17 @@ class RAGPipeline:
 === 관련 공지사항 ===
 {context}
 
-=== 답변 규칙 ===
-1. 제공된 공지사항 정보만을 기반으로 답변하세요
-2. 정보가 없거나 불확실하면 "해당 정보를 찾을 수 없습니다"라고 말하세요
-3. 답변 끝에 관련 부서 연락처가 있으면 함께 안내하세요
-4. 친근하고 정중한 톤으로 답변하세요
-5. 한국어로 답변하세요
+=== ⚠️ 중요한 답변 규칙 ===
+1. **반드시 제공된 공지사항 정보만을 기반으로 답변하세요**
+2. **제공된 문서에 해당 정보가 없으면 반드시 "해당 정보를 찾을 수 없습니다"라고 명시하세요**
+3. **절대로 추측하거나 일반적인 정보로 답변하지 마세요**
+4. **다른 정보와 혼동하여 답변하지 마세요**
+5. 답변 끝에 관련 부서 연락처가 있으면 함께 안내하세요  📞
+6. 친근하고 정중한 톤으로 답변하세요
+7. 한국어로 답변하세요
+8. 답변은 300자 이내로 간결하게 작성하세요
+9. 이모지를 적절히 사용하여 가독성을 높이세요 📝
+10. 중요한 정보는 줄바꿈으로 구분하세요
 
 질문: {question}
 
@@ -135,16 +142,34 @@ class RAGPipeline:
             # SafeVectorStoreManager의 메서드에 맞춰 수정
             if not force_rebuild:
                 # 기존 벡터 저장소가 있는지 확인
+                # 기존 벡터 저장소가 있는지 확인
+                # 기존 벡터 저장소가 있는지 확인
                 if os.path.exists(self.vector_manager.persist_directory):
                     print("✅ 기존 벡터 저장소 디렉토리 발견")
-                    # vector_store 객체 초기화 시도
+                    # 사용 가능한 컬렉션 찾기
                     try:
-                        from langchain_chroma import Chroma
-                        self.vector_manager.vector_store = Chroma(
-                            persist_directory=str(self.vector_manager.persist_directory),
-                            embedding_function=self.vector_manager.embeddings
-                        )
-                        print("✅ 기존 벡터 저장소 로드 완료")
+                        import chromadb
+                        client = chromadb.PersistentClient(path=str(self.vector_manager.persist_directory))
+                        collections = client.list_collections()
+                        
+                        # 문서가 있는 첫 번째 컬렉션 사용
+                        for collection in collections:
+                            count = collection.count()
+                            if count > 0:
+                                print(f"✅ '{collection.name}' 컬렉션 발견 ({count}개 문서)")
+                                
+                                from langchain_chroma import Chroma
+                                self.vector_manager.vector_store = Chroma(
+                                    persist_directory=str(self.vector_manager.persist_directory),
+                                    embedding_function=self.vector_manager.embeddings,
+                                    collection_name=collection.name  # 실제 컬렉션 이름 사용
+                                )
+                                print("✅ 기존 벡터 저장소 로드 완료")
+                                break
+                        else:
+                            print("❌ 문서가 있는 컬렉션을 찾을 수 없습니다.")
+                            force_rebuild = True
+                            
                     except Exception as e:
                         print(f"기존 벡터 저장소 로드 실패: {e}")
                         force_rebuild = True
@@ -221,7 +246,7 @@ class RAGPipeline:
         """
         if not self.qa_chain:
             return {
-                "answer": "RAG 시스템이 초기화되지 않았습니다. setup_rag_system()을 먼저 실행해주세요.",
+                "answer": "RAG 시스템이 초기화되지 않았습니다.",
                 "source_documents": [],
                 "error": True
             }
@@ -229,21 +254,25 @@ class RAGPipeline:
         try:
             print(f"\n🔍 질문 처리 중: '{question}'")
             
-            # 질문 실행
-            result = self.qa_chain({"query": question})
+            # 출력 숨기기
+            import contextlib
+            import io
+            
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = self.qa_chain.invoke({"query": question})
             
             # 결과 정리
             answer = result.get("result", "답변을 생성할 수 없습니다.")
             source_docs = result.get("source_documents", [])
             
-            # 출처 정보 정리
+            # 출처 정보 정리 (간소화)
             sources = []
             for doc in source_docs:
                 source_info = {
                     "title": doc.metadata.get("title", "제목 없음"),
                     "category": doc.metadata.get("category", "분류 없음"),
-                    "date": doc.metadata.get("date", "날짜 없음"),
-                    "content_preview": doc.page_content[:100] + "..." if len(doc.page_content) > 100 else doc.page_content
+                    "date": doc.metadata.get("date", "날짜 없음")
+                    # content_preview 제거
                 }
                 sources.append(source_info)
             
@@ -265,7 +294,7 @@ class RAGPipeline:
                 "source_documents": [],
                 "error": True
             }
-    
+            
     def batch_ask_questions(self, questions: List[str]) -> List[Dict[str, Any]]:
         """
         여러 질문을 일괄 처리하는 함수
@@ -283,6 +312,11 @@ class RAGPipeline:
             result = self.ask_question(question)
             result["question"] = question
             results.append(result)
+        
+            # API 속도 제한 방지를 위한 대기
+            if i < len(questions):  # 마지막 질문이 아니면
+                print("⏳ API 안정화를 위해 2초 대기...")
+                time.sleep(2)
         
         return results
     
@@ -379,7 +413,10 @@ class RAGPipeline:
                 retriever=self.vector_manager.vector_store.as_retriever(
                     search_kwargs={"k": 3}
                 ),
-                chain_type_kwargs={"prompt": self.prompt_template},
+                    chain_type_kwargs={
+                        "prompt": self.prompt_template,
+                        "verbose": False  # verbose 끄기!
+                    },
                 return_source_documents=True
             )
         
@@ -396,7 +433,8 @@ def main():
     rag = RAGPipeline(
         model_name="gpt-3.5-turbo",
         temperature=0.1,
-        max_tokens=500
+        max_tokens=300,  # 더 짧은 답변으로 속도 향상
+        request_timeout=30
     )
     
     # RAG 시스템 설정
@@ -414,9 +452,9 @@ def main():
         "기숙사 신청은 어떻게 하나요?"  # 데이터에 없는 질문
     ]
     
-    # 개별 질문 테스트
+    # 개별 질문 테스트 (전체 6개)
     print("\n=== 개별 질문 테스트 ===")
-    for question in test_questions[:3]:  # 처음 3개만 테스트
+    for question in test_questions:  # [:3] 제거 → 전체 6개
         result = rag.ask_question(question)
         
         print(f"\n질문: {question}")
