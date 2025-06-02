@@ -33,8 +33,9 @@ from typing import List
 # 현재 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+# 수정된 임포트
 from document_processing import DocumentProcessor
-from vector_store import VectorStoreManager
+from vector_store import SafeVectorStoreManager as VectorStoreManager
 
 def check_data_directory():
     """데이터 디렉토리와 파일 상태 확인"""
@@ -164,7 +165,7 @@ def test_vector_store_creation(chunks):
         print("벡터 저장소 생성 중...")
         
         # 벡터 저장소 생성
-        vector_manager.create_vector_store(chunks)
+        vector_manager.create_vector_store_safe(chunks)
         
         # 생성 확인
         if vector_manager.vector_store is not None:

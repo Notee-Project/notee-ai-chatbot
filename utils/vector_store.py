@@ -39,8 +39,10 @@ except ImportError:
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 
-# 문서 처리기 임포트 (동일 폴더 내)
-from document_processing import DocumentProcessor
+try:
+    from .document_processing import DocumentProcessor
+except ImportError:
+    from document_processing import DocumentProcessor
 
 class SafeVectorStoreManager:
     """

@@ -14,7 +14,7 @@ yANUs/
 ├── 📄 config.py                      # 구성 설정
 ├── 📄 requirements.txt               # 의존성 목록
 ├── 📄 README.md                      # 프로젝트 설명서
-│
+├── 📄 llm.py                         # LLM 관련
 ├── 📂 data/                          # 데이터 저장 폴더
 │   ├── 📂 raw/                       # 원본 데이터
 │   │   ├── 📄 document_01_학사.txt
@@ -29,10 +29,6 @@ yANUs/
 │   │
 │   └── 📂 vector_db/                 # 벡터 데이터베이스
 │       └── 📁 chroma_db/             # Chroma 벡터 저장소
-│
-├── 📂 models/                        # 모델 관련 코드
-│   ├── 📄 embeddings.py              # 임베딩 모델 관련
-│   └── 📄 llm.py                     # LLM 관련
 │
 ├── 📂 utils/                         # 유틸리티 함수
 │   ├── 📄 document_processing.py     # 문서 처리
