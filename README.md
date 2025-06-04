@@ -17,11 +17,7 @@ yANUs/
 ├── 📄 llm.py                         # LLM 관련
 ├── 📂 data/                          # 데이터 저장 폴더
 │   ├── 📂 raw/                       # 원본 데이터
-│   │   ├── 📄 document_01_학사.txt
-│   │   ├── 📄 document_02_시설.txt
-│   │   ├── 📄 document_03_국제교류.txt
-│   │   ├── 📄 document_04_취업.txt
-│   │   ├── 📄 document_05_시설.txt
+│   │   ├── 📄 document_01_학사.txt ...
 │   │   └── 📄 metadata.json          # 문서 메타데이터
 │   │
 │   ├── 📂 processed/                 # 처리된 데이터
