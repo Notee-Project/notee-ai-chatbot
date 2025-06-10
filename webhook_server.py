@@ -35,10 +35,10 @@ async def lifespan(app: FastAPI):
         # RAG 파이프라인 초기화 (기존 llm.py 설정 활용)
         print("🤖 RAG 파이프라인 초기화 중...")
         rag_pipeline = RAGPipeline(
-            model_name="gpt-4o-mini",    # 빠른 응답을 위해 3.5 사용
+            model_name="gpt-3.5-turbo",    # 빠른 응답을 위해 3.5 사용
             temperature=0.1-0,               # 일관성 있는 답변
-            max_tokens=400,                # 카톡에 적절한 길이
-            request_timeout=15,            # 타임아웃 30초
+            max_tokens=300,                # 카톡에 적절한 길이
+            request_timeout=5,            # 타임아웃 30초
             embedding_model="korean",      # 한국어 특화 임베딩
             vector_db_type="chroma"        # Chroma DB 사용
         )

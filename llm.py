@@ -43,10 +43,10 @@ class RAGPipeline:
     """
     
     def __init__(self, 
-                 model_name: str = "gpt-4o-mini",
+                 model_name: str = "gpt-3.5-turbo",
                  temperature: float = 0.1-0,
                  max_tokens: int = 400,
-                 request_timeout=15,     # 응답 대기 시간 (초)
+                 request_timeout=5,     # 응답 대기 시간 (초)
                  embedding_model: str = "korean",
                  vector_db_type: str = "chroma"):
         """

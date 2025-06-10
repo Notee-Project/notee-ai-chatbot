@@ -10,8 +10,8 @@
 yANUs/
 ├── 📄 .env                           # 환경 변수 (API 키 등)
 ├── 📄 .gitignore                     # Git 무시 파일
-├── 📄 app.py                         # 메인 애플리케이션
-├── 📄 config.py                      # 구성 설정
+├── 📄 app.py                         # 랭체인 설정 테스트용
+├── 📄 webhook_werver.py              # 웹훅 서버 (메인 애플리케이션)
 ├── 📄 requirements.txt               # 의존성 목록
 ├── 📄 README.md                      # 프로젝트 설명서
 ├── 📄 llm.py                         # LLM 관련
