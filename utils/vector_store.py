@@ -207,8 +207,7 @@ class SafeVectorStoreManager:
     
     def create_vector_store_safe(self, documents: List[Document]) -> None:
         """
-        안전하게 벡터 저장소를 생성하는 함수 (파일 잠금 문제 해결)
-        
+        안전하게 벡터 저장소를 생성하는 함수 (완전 초기화 방식)       
         Args:
             documents (List[Document]): 벡터화할 문서 리스트
         """
@@ -231,19 +230,37 @@ class SafeVectorStoreManager:
                 # 1. 기존 연결 정리
                 self._force_close_chroma_connections()
                 
-                # 2. 기존 파일들 안전 삭제
-                self._safe_cleanup_chroma_files()
+                # 2. 전체 벡터 DB 디렉토리 완전 삭제
+                import shutil
+                if self.persist_directory.exists():
+                    print(f"🗑️ 전체 벡터 DB 디렉토리 삭제 중: {self.persist_directory}")
+                    
+                    # Windows에서 권한 문제 해결
+                    def remove_readonly(func, path, _):
+                        import stat
+                        os.chmod(path, stat.S_IWRITE)
+                        func(path)
+                    
+                    try:
+                        shutil.rmtree(str(self.persist_directory), onerror=remove_readonly)
+                        print("✅ 디렉토리 삭제 완료")
+                    except Exception as e:
+                        print(f"⚠️ 디렉토리 삭제 실패: {e}")
+                        # 실패해도 계속 진행
                 
-                # 3. 잠시 대기 (파일 시스템이 안정화될 시간)
+                # 3. 디렉토리 다시 생성
+                self.persist_directory.mkdir(parents=True, exist_ok=True)
+                print("📁 새로운 디렉토리 생성 완료")
+                
+                # 4. 잠시 대기 (파일 시스템 안정화)
                 print("⏳ 파일 시스템 안정화 대기...")
                 time.sleep(2)
                 
-                # 4. 새로운 컬렉션 이름 생성 (충돌 방지)
+                # 5. 완전히 새로운 벡터 저장소 생성
                 collection_name = "school_notices"
                 
                 print(f"🔧 새 Chroma 벡터 저장소 생성 중... (컬렉션: {collection_name})")
                 
-                # 5. 벡터 저장소 생성
                 self.vector_store = Chroma.from_documents(
                     documents=documents,
                     embedding=self.embeddings,
@@ -265,17 +282,25 @@ class SafeVectorStoreManager:
                     
                 except Exception as e:
                     print(f"⚠️ 문서 개수 확인 중 오류: {e}")
-                
+                    
             elif self.vector_db_type == "faiss":
                 # FAISS 벡터 저장소 생성
                 print("🔧 FAISS 벡터 저장소 생성 중...")
+                
+                # 기존 FAISS 파일들 삭제
+                faiss_path = self.persist_directory / "faiss_index"
+                if faiss_path.exists():
+                    import shutil
+                    shutil.rmtree(str(faiss_path))
+                    print(f"🗑️ 기존 FAISS 인덱스 삭제: {faiss_path}")
                 
                 self.vector_store = FAISS.from_documents(
                     documents=documents,
                     embedding=self.embeddings
                 )
+                
                 # FAISS 인덱스 저장
-                faiss_path = self.persist_directory / "faiss_index"
+                faiss_path.mkdir(parents=True, exist_ok=True)
                 self.vector_store.save_local(str(faiss_path))
                 print(f"✅ FAISS 벡터 저장소 생성 완료: {faiss_path}")
                 
