@@ -233,3 +233,7 @@ build/
 
 # PM2 설정
 ecosystem.config.js
+
+data/vector_db
+data/raw
+data/processed
