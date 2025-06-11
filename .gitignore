@@ -172,3 +172,64 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables (중요!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 로그 파일
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# 캐시 디렉토리
+.npm/
+.yarn-integrity
+
+# ESLint cache
+.eslintcache
+
+# 임시 파일
+*.tmp
+*.temp
+
+# 운영체제 파일
+.DS_Store
+Thumbs.db
+
+# IDE/에디터 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ngrok 설정 (선택사항)
+ngrok.yml
+
+# 백업 파일
+*.bak
+*.backup
+
+# 테스트 커버리지
+coverage/
+
+# 빌드 결과물
+dist/
+build/
+
+# PM2 설정
+ecosystem.config.js
