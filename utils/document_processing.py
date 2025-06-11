@@ -280,7 +280,7 @@ def main():
         print("처리할 문서가 없습니다.")
 
 
-def save_chunks_to_file(chunks: List[Document], output_file: str = "data/processed/chunks.json"):
+def save_chunks_to_file(chunks: List[Document], output_file: str = "../data/processed/chunks.json"):
     """
     처리된 청크를 JSON 파일로 저장하는 함수
     
